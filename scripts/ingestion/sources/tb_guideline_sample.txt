@@ -1,0 +1,15 @@
+Tuberculosis (TB) is caused by a bacterium called Mycobacterium tuberculosis. The bacteria usually attack the lungs, but TB bacteria can attack any part of the body such as the kidney, spine, and brain.
+
+Common symptoms of active lung TB are:
+- A cough that lasts 3 weeks or longer
+- Coughing up blood or sputum (phlegm from deep inside the lungs)
+- Chest pain
+- Weakness or fatigue
+- Weight loss
+- Fever and chills
+- Sweating at night
+
+Treatment for drug-susceptible TB disease consists of a 6-month regimen of four antimicrobial drugs: isoniazid, rifampicin, ethambutol, and pyrazinamide. 
+Patients must strictly follow their medication schedule, often overseen by a healthcare worker at a DOTS (Directly Observed Treatment, Short-course) center.
+
+If a patient stops taking the drugs before the regimen is complete, or if they take the drugs incorrectly, the surviving TB bacteria can develop resistance, leading to Multidrug-Resistant TB (MDR-TB), which requires much longer and more complex treatment.
