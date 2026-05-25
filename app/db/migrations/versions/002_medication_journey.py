@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "002_medication_journey"
-down_revision = None
+down_revision = "c32aeaec9907"
 branch_labels = None
 depends_on = None
 
@@ -37,7 +37,7 @@ def upgrade() -> None:
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column(
             "status",
-            sa.Enum("active", "completed", "paused", "reset",
+            postgresql.ENUM("active", "completed", "paused", "reset",
                     name="journey_status", create_type=False),
             nullable=False,
             server_default="active",
@@ -107,7 +107,7 @@ def upgrade() -> None:
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column(
             "category",
-            sa.Enum("streak", "milestone", "consistency", "recovery",
+            postgresql.ENUM("streak", "milestone", "consistency", "recovery",
                     name="achievement_category", create_type=False),   # ← fixed
             nullable=False,
         ),

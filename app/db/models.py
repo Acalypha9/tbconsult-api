@@ -1,12 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any
-<<<<<<< HEAD
-from sqlalchemy import String, Text, Integer, Boolean, ARRAY
-=======
-from sqlalchemy import String, Text, Integer, Boolean, ForeignKey, ARRAY, Float, Date, Enum as SAEnum
->>>>>>> 5b5d1ebcd7588ceedb2f6d957c11b0b23ee825e0
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import String, Text, Integer, Boolean, ForeignKey, ARRAY, Float, Date
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM as PGEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
 import enum
@@ -81,7 +77,7 @@ class MedicationJourney(Base):
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)          # e.g. "Rifampicin & Isoniazid"
     status: Mapped[str] = mapped_column(
-        SAEnum(JourneyStatus, name="journey_status"), nullable=False, default=JourneyStatus.active
+        PGEnum(JourneyStatus, name="journey_status", create_type=False), nullable=False, default=JourneyStatus.active
     )
     start_date: Mapped[datetime] = mapped_column(nullable=False)
     end_date: Mapped[datetime] = mapped_column(nullable=True)               # None = ongoing
@@ -174,7 +170,7 @@ class Achievement(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     category: Mapped[str] = mapped_column(
-        SAEnum(AchievementCategory, name="achievement_category"), nullable=False
+        PGEnum(AchievementCategory, name="achievement_category", create_type=False), nullable=False
     )
     icon: Mapped[str] = mapped_column(String(100), nullable=True)               # icon name for Flutter
     required_value: Mapped[int] = mapped_column(Integer, nullable=False)        # e.g. 7 for 7-day streak
