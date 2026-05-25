@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, TypedDict
 
 class TriageState(TypedDict):
     user_message: str
@@ -11,6 +11,9 @@ class TriageState(TypedDict):
     
     retrieved_docs: list[dict]
     web_results: list[dict]
+    chat_history: list[dict]
+    tool_calls: list[Any]
+    tool_results: list[dict]
     
     reranked_docs: list[dict]
     
@@ -19,3 +22,5 @@ class TriageState(TypedDict):
     
     sdui_components: list[dict]
     processing_start_ms: int
+    
+    db_session: Any  # AsyncSession passed from route handler

@@ -9,7 +9,6 @@ class ChatResponse(BaseModel):
     risk_level: str
     response_text: str
     red_flags: list[str]
-    disclaimer: str
     sources: list[str]
     sdui: Optional[dict[str, Any]] = None
 

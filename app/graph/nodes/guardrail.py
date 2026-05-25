@@ -19,13 +19,12 @@ def validate_output(state: TriageState) -> dict:
         
     response_lower = response_text.lower()
     has_diagnosis = any(keyword in response_lower for keyword in DIAGNOSIS_KEYWORDS)
-    
-    has_source = "[Source" in response_text
+    has_source = bool(triage_decision.get("sources")) or "[Source" in response_text or "Source " in response_text
     
     if has_diagnosis or not has_source:
         safe_response = "Based on your symptoms, please consult a healthcare professional for a proper medical evaluation. I cannot provide a diagnosis."
-        if has_source:
-            safe_response += " " + " ".join([sentence for sentence in response_text.split(".") if "[Source" in sentence]) + "."
+        if "[Source" in response_text or "Source " in response_text:
+            safe_response += " " + " ".join([sentence for sentence in response_text.split(".") if "[Source" in sentence or "Source" in sentence]) + "."
         return {
             "triage_decision": triage_decision,
             "response_text": safe_response

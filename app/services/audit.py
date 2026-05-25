@@ -10,7 +10,7 @@ class AuditService:
     @staticmethod
     async def log_triage(
         db: AsyncSession,
-        session_id: str,
+        session_id: str | None,
         user_query: str,
         extracted_entities: dict | None = None,
         red_flags_detected: bool = False,

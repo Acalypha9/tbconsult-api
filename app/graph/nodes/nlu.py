@@ -6,7 +6,7 @@ from app.schemas.nlu import NLUExtraction
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
-You are a medical natural language understanding (NLU) assistant specializing in tuberculosis (TB).
+You are the NLU (Natural Language Understanding) component of TBConsult, a medical triage assistant specializing in tuberculosis (TB).
 Your task is to extract structured clinical entities from the user's message.
 
 Instructions:

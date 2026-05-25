@@ -1,6 +1,6 @@
 import logging
 from app.graph.state import TriageState
-from app.services.cohere_rerank import cohere_rerank_service
+from app.services.do_rerank import rerank_service
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,10 @@ async def rerank_documents(state: TriageState) -> dict:
     if present_symptoms:
         query += " " + " ".join(present_symptoms)
         
+    print(f"DEBUG RAG: Reranking {len(documents)} docs with query '{query}'")
     try:
-        reranked = await cohere_rerank_service.rerank(query, documents, top_k=5)
+        reranked = await rerank_service.rerank(query, documents, top_k=5)
+        print(f"DEBUG RAG: Reranked {len(reranked)} docs")
         return {"reranked_docs": reranked}
     except Exception as e:
         logger.error(f"Reranking failed: {e}")

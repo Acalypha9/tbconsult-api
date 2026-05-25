@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from typing import Optional
+from typing import Optional, Any
 from openai import OpenAI, AsyncOpenAI, OpenAIError
 from app.core.config import settings
 from app.core.exceptions import LLMUnavailableError
@@ -167,11 +167,27 @@ class LLMService:
             
             return {}
         except OpenAIError as e:
-            logger.error(f"LLM structured async invocation failed: {e}")
+            logger.error(f"LLM structured invocation failed: {e}")
             raise LLMUnavailableError(f"LLM error: {e}")
         except json.JSONDecodeError as e:
             logger.error(f"Failed to decode JSON from tool arguments: {e}")
             return {}
+
+    async def invoke_llm_with_tools(self, system_prompt: str, user_message: str, tools: list, temperature: float = 0.0) -> Any:
+        try:
+            kwargs = self._prepare_kwargs(
+                system_prompt, 
+                user_message, 
+                use_caching=False, 
+                reasoning_effort=None, 
+                temperature=temperature,
+                tools=[{"type": "function", "function": {"name": t.name, "description": t.description, "parameters": t.args_schema.model_json_schema()}} for t in tools]
+            )
+            response = await self.async_client.chat.completions.create(**kwargs)
+            return response.choices[0].message
+        except OpenAIError as e:
+            logger.error(f"LLM tool invocation failed: {e}")
+            raise LLMUnavailableError(f"LLM error: {e}")
 
     def _embed_text_sync(self, text: str, input_type: str = "search_query") -> list[float]:
         try:

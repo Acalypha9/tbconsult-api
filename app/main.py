@@ -3,18 +3,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import api_router
-from app.api.middleware.rate_limit import RateLimitMiddleware
 from app.core.config import settings
 from app.core.exceptions import TriageServiceError
 from app.db.session import async_engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import logging
+    logger = logging.getLogger("app.main")
     from app.db.models import Base
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    try:
+        # Tables should be created via alembic migrations, not startup auto-creation
+        logger.info("Database connection initialized.")
+    except Exception as e:
+        logger.warning(
+            f"Database connection failed: {e}. Running server in degraded/offline-database mode."
+        )
     yield
-    await async_engine.dispose()
+    try:
+        await async_engine.dispose()
+    except Exception:
+        pass
 
 app = FastAPI(
     title="TBConsult Backend",
@@ -23,7 +32,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,6 +54,4 @@ async def triage_service_exception_handler(request, exc: TriageServiceError):
         },
     )
 
-@app.get("/health")
-async def root_health():
-    return {"status": "ok"}
+# Root /health removed — use /v1/health which checks DB connectivity

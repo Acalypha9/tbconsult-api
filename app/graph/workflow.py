@@ -1,6 +1,7 @@
 import time
 from langgraph.graph import StateGraph, END
 from app.graph.state import TriageState
+
 from app.graph.nodes.red_flag import detect_red_flags
 from app.graph.nodes.nlu import extract_entities
 from app.graph.nodes.retrieval import retrieve_documents
@@ -8,6 +9,7 @@ from app.graph.nodes.web_search import search_web
 from app.graph.nodes.rerank import rerank_documents
 from app.graph.nodes.generate import generate_triage
 from app.graph.nodes.guardrail import validate_output
+from app.graph.nodes.tool_execution import execute_tools
 
 def should_extract(state: TriageState) -> str:
     if state.get("is_red_flag"):
@@ -20,6 +22,11 @@ def should_search_web(state: TriageState) -> str:
         return "web_search"
     return "rerank"
 
+def should_execute_tools(state: TriageState) -> str:
+    if state.get("tool_calls"):
+        return "tool_execution"
+    return "guardrail"
+
 workflow = StateGraph(TriageState)
 
 workflow.add_node("red_flag_check", detect_red_flags)
@@ -27,6 +34,7 @@ workflow.add_node("nlu_extraction", extract_entities)
 workflow.add_node("retrieval", retrieve_documents)
 workflow.add_node("web_search", search_web)
 workflow.add_node("rerank", rerank_documents)
+workflow.add_node("tool_execution", execute_tools)
 workflow.add_node("generate", generate_triage)
 workflow.add_node("guardrail", validate_output)
 
@@ -54,16 +62,27 @@ workflow.add_conditional_edges(
 
 workflow.add_edge("web_search", "rerank")
 workflow.add_edge("rerank", "generate")
-workflow.add_edge("generate", "guardrail")
+
+workflow.add_conditional_edges(
+    "generate",
+    should_execute_tools,
+    {
+        "tool_execution": "tool_execution",
+        "guardrail": "guardrail" 
+    }
+)
+
+workflow.add_edge("tool_execution", "generate")
 workflow.add_edge("guardrail", END)
 
 graph = workflow.compile()
 
-async def run_triage(user_message: str, session_id: str) -> TriageState:
+async def run_triage(user_message: str, session_id: str, db=None) -> TriageState:
     initial_state = {
         "user_message": user_message,
         "session_id": session_id,
-        "processing_start_ms": int(time.time() * 1000)
+        "processing_start_ms": int(time.time() * 1000),
+        "db_session": db,
     }
     
     result = await graph.ainvoke(initial_state)

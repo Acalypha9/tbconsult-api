@@ -7,8 +7,6 @@ This is the FastAPI backend for the TBConsult medical triage chatbot. It uses La
 - **Web Framework:** FastAPI
 - **Orchestration:** LangGraph (State Machine for Triage)
 - **Database:** PostgreSQL + pgvector (via SQLAlchemy)
-- **Caching & Rate Limiting:** Redis
-- **LLM & Embeddings:** DigitalOcean Serverless Inference
 - **Deployment:** Docker & Docker Compose (Targeted for DigitalOcean VPS)
 
 ## Prerequisites
@@ -32,15 +30,13 @@ This is the FastAPI backend for the TBConsult medical triage chatbot. It uses La
    ```
    *Note: Ensure you have `DIGITALOCEAN_API_KEY` configured.*
 
-3. **Start the Infrastructure (Postgres, Redis, API):**
+3. **Start the API:**
    ```bash
    docker-compose up -d --build
    ```
    
-   The following services will start:
+   The following service will start:
    - **api**: `http://localhost:8000`
-   - **postgres**: Port `5432`
-   - **redis**: Port `6379`
 
 4. **Verify Health:**
    Check if the system is running and dependencies are connected:
@@ -72,7 +68,9 @@ If you want to run tests locally (outside Docker), set up a virtual environment:
 ```bash
 # Create and activate virtual env
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/Scripts/activate
+
+uvicorn app.main:app --reload --port 8000
 
 # Install dependencies including dev tools
 pip install -e .[dev]

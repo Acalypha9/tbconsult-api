@@ -3,7 +3,6 @@ from app.schemas.api import HealthResponse
 from app.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-import redis.asyncio as redis
 from app.core.config import settings
 
 router = APIRouter()
@@ -12,11 +11,10 @@ router = APIRouter()
 async def health_check(db: AsyncSession = Depends(get_db)):
     """
     Health check endpoint.
-    Checks postgres, redis, and digitalocean inference dependencies.
+    Checks postgres and digitalocean inference dependencies.
     """
     dependencies = {
         "postgres": "down",
-        "redis": "down",
         "digitalocean": "down"
     }
     
@@ -24,15 +22,6 @@ async def health_check(db: AsyncSession = Depends(get_db)):
     try:
         await db.execute(text("SELECT 1"))
         dependencies["postgres"] = "up"
-    except Exception:
-        pass
-        
-    # Check Redis
-    try:
-        redis_client = redis.from_url(settings.REDIS_URL)
-        await redis_client.ping()
-        dependencies["redis"] = "up"
-        await redis_client.close()
     except Exception:
         pass
         

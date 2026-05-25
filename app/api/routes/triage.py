@@ -26,10 +26,10 @@ async def chat(
 ):
     """Process user message through TB triage pipeline and return structured response."""
     start_time = time.time()
-    session_id = request.session_id or "anonymous"
+    session_id = request.session_id
 
     try:
-        state = await run_triage(request.message, session_id)
+        state = await run_triage(request.message, session_id, db)
         processing_time_ms = int((time.time() - start_time) * 1000)
 
         triage_decision = state.get("triage_decision", {})
@@ -49,7 +49,6 @@ async def chat(
             risk_level=risk_level,
             response_text=response_text,
             red_flags=red_flags,
-            disclaimer="This is not a medical diagnosis. Please consult a healthcare professional.",
             sources=sources,
             sdui={"components": state.get("sdui_components", [])} if state.get("sdui_components") else None,
         )
@@ -80,8 +79,10 @@ async def chat(
             detail=SAFE_FALLBACK_MESSAGE,
         )
 
-    except Exception:
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=SAFE_FALLBACK_MESSAGE,
+            detail=str(e),
         )

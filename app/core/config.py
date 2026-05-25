@@ -10,7 +10,6 @@ class Settings(BaseSettings):
     JWT_EXPIRATION_MINUTES: int = 60
     
     DATABASE_URL: str
-    REDIS_URL: str
     
     # DigitalOcean GenAI
     DIGITALOCEAN_API_KEY: str = ""
@@ -18,11 +17,12 @@ class Settings(BaseSettings):
     
     LLM_MODEL_ID: str = ""
     EMBED_MODEL_ID: str = ""
+    RERANKER_MODEL_ID: str = ""
     
     COHERE_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
     
-    RATE_LIMIT_PER_MINUTE: int = 10
+
     
     DIGITALOCEAN_TIMEOUT_MS: int = 15000
     WEB_SEARCH_TIMEOUT_MS: int = 1500
