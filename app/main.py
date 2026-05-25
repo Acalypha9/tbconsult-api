@@ -7,6 +7,7 @@ from app.api.middleware.rate_limit import RateLimitMiddleware
 from app.core.config import settings
 from app.core.exceptions import TriageServiceError
 from app.db.session import async_engine
+from app.api.routes.medication import router as medication_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -33,6 +34,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/v1")
+app.include_router(medication_router, prefix="/v1")
 
 @app.exception_handler(TriageServiceError)
 async def triage_service_exception_handler(request, exc: TriageServiceError):
