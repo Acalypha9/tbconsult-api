@@ -88,11 +88,29 @@ async def run_triage(user_message: str, session_id: str, db=None) -> TriageState
     result = await graph.ainvoke(initial_state)
     
     if result.get("is_red_flag"):
-        result["response_text"] = "URGENT: Your symptoms indicate a potential medical emergency. Please visit the nearest emergency room or contact emergency services immediately."
+        is_indonesian = any(word in user_message.lower() for word in ["saya", "batuk", "demam", "tbc", "rumah", "sakit", "di", "ada", "yang"])
+        
+        response_text = (
+            "DARURAT: Gejala Anda menunjukkan kemungkinan kondisi darurat medis. Silakan segera kunjungi unit gawat darurat terdekat atau hubungi layanan darurat."
+            if is_indonesian else
+            "URGENT: Your symptoms indicate a potential medical emergency. Please visit the nearest emergency room or contact emergency services immediately."
+        )
+        
+        next_steps = ["Segera kunjungi unit gawat darurat"] if is_indonesian else ["Visit emergency room immediately"]
+        button_label = "Cari Rumah Sakit Terdekat" if is_indonesian else "Find Nearest Hospital"
+        
+        result["response_text"] = response_text
         result["triage_decision"] = {
             "risk_level": "High",
-            "next_steps": ["Visit emergency room immediately"],
+            "next_steps": next_steps,
             "requires_immediate_attention": True
         }
+        result["sdui_components"] = [
+            {
+                "type": "button",
+                "label": button_label,
+                "action": "visit_dots"
+            }
+        ]
         
     return result

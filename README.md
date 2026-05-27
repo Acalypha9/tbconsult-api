@@ -70,7 +70,11 @@ If you want to run tests locally (outside Docker), set up a virtual environment:
 python -m venv .venv
 source .venv/Scripts/activate
 
+# Run the API (Unix/macOS)
 uvicorn app.main:app --reload --port 8000
+
+# Alternative for Windows/Git Bash (avoids path activation issues):
+.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
 
 # Install dependencies including dev tools
 pip install -e .[dev]

@@ -18,7 +18,7 @@ CRITICAL MEDICAL GUARDRAILS (STRICT ADHERENCE REQUIRED):
    - Do not give information not mentioned in the Context.
    - Do not say "according to the context", "mentioned in the context", "based on the guidelines", "according to the sources", or similar.
    - If the context does not contain the answer, explicitly state: "I don't have enough information to answer this based on the available guidelines." Do NOT hallucinate or speculate.
-5. CITATIONS: You MUST cite sources for every medical claim using the exact [Source N] format (e.g. [Source 1], [Source 2]). Do not omit the square brackets, as they are required for output validation.
+5. NO INLINE CITATIONS: Do NOT include any inline citations, bracket markers, or source text (such as [Source N], [response N], or similar) inside the 'reasons' or 'next_steps' text fields. Keep the text clean, simple, and direct. However, you MUST list all the source document names you relied on (e.g., "[Source 1]", "[Source 2]") in the separate 'sources' list field of the structured output.
 
 TRIAGE & GENERATION REQUIREMENTS:
 - Clearly classify the user's situation strictly as Low, Moderate, or High risk based on the context and extracted entities.
@@ -36,20 +36,33 @@ TONE & COMMUNICATION:
 
 async def generate_triage(state: TriageState) -> dict:
     reranked_docs = state.get("reranked_docs", [])
+    user_message = state.get("user_message", "")
     
     if not reranked_docs:
+        is_indonesian = any(word in user_message.lower() for word in ["saya", "batuk", "demam", "tbc", "rumah", "sakit", "di", "ada", "yang"])
+        response_text = (
+            "Saya tidak memiliki informasi spesifik yang cukup untuk memberikan penilaian terperinci. Silakan berkonsultasi dengan profesional kesehatan atau kunjungi klinik untuk evaluasi yang tepat."
+            if is_indonesian else
+            "I don't have enough specific information to provide a detailed assessment. Please consult a healthcare professional or visit a clinic for proper evaluation."
+        )
+        button_label = "Lihat Lokasi Rumah Sakit / DOTS" if is_indonesian else "View Hospital / DOTS Locations"
         return {
             "triage_decision": {
                 "risk_level": "Low",
-                "next_steps": ["Please consult a healthcare professional for accurate advice."],
+                "next_steps": ["Silakan berkonsultasi dengan profesional kesehatan." if is_indonesian else "Please consult a healthcare professional for accurate advice."],
                 "requires_immediate_attention": False
             },
-            "response_text": "I don't have enough specific information to provide a detailed assessment. Please consult a healthcare professional or visit a clinic for proper evaluation.",
-            "sdui_components": []
+            "response_text": response_text,
+            "sdui_components": [
+                {
+                    "type": "button",
+                    "label": button_label,
+                    "action": "visit_dots"
+                }
+            ]
         }
         
     context_text = "\n\n".join([f"[Source {i+1}] {doc.get('text')}" for i, doc in enumerate(reranked_docs)])
-    user_message = state.get("user_message", "")
     extracted_entities = state.get("extracted_entities", {})
     
     prompt = f"""
@@ -101,25 +114,38 @@ User Message:
         reasons = triage_decision.get("reasons", [])
         next_steps = triage_decision.get("next_steps", [])
         risk_level = triage_decision.get("risk_level", "Low")
-        sources = triage_decision.get("sources", [])
+        
+        # Determine language (Indonesian or English)
+        sample_text = (user_message + " " + " ".join(reasons)).lower()
+        is_indonesian = any(word in sample_text for word in ["saya", "batuk", "demam", "tbc", "rumah", "sakit", "di", "ada", "yang", "dan", "yang", "untuk", "dengan", "adalah"])
         
         parts = []
         if reasons:
-            parts.append(" ".join(reasons))
+            bullet_reasons = "\n".join([f"• {r.strip()}" for r in reasons])
+            parts.append(bullet_reasons)
         if next_steps:
-            parts.append("**Next steps:** " + "; ".join(next_steps) + ".")
-        if sources:
-            parts.append("**Sources:** " + ", ".join(sources) + ".")
+            bullet_steps = "\n".join([f"• {s.strip()}" for s in next_steps])
+            title = "**Langkah Selanjutnya:**" if is_indonesian else "**Next Steps:**"
+            parts.append(f"{title}\n{bullet_steps}")
         
         response_text = "\n\n".join(parts) if parts else (
-            f"Based on the information provided, your risk level is assessed as {risk_level}. "
-            "Please consult a healthcare professional for accurate advice."
+            f"Berdasarkan informasi yang diberikan, tingkat risiko Anda dinilai sebagai {risk_level}. Silakan berkonsultasi dengan profesional medis." if is_indonesian else
+            f"Based on the information provided, your risk level is assessed as {risk_level}. Please consult a healthcare professional for accurate advice."
         )
+        
+        button_label = "Lihat Lokasi Rumah Sakit / DOTS" if is_indonesian else "View Hospital / DOTS Locations"
+        sdui_components = [
+            {
+                "type": "button",
+                "label": button_label,
+                "action": "visit_dots"
+            }
+        ]
         
         return {
             "triage_decision": triage_decision,
             "response_text": response_text,
-            "sdui_components": [],
+            "sdui_components": sdui_components,
             "tool_calls": []
         }
     except Exception as e:
