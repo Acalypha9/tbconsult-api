@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any
-from sqlalchemy import String, Text, Integer, Boolean, ForeignKey, ARRAY, Float, Date
+from sqlalchemy import String, Text, Integer, Boolean, ForeignKey, ARRAY, Float, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM as PGEnum
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -21,7 +21,7 @@ class KnowledgeBase(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now())
 
 
 class Session_(Base):
@@ -29,7 +29,7 @@ class Session_(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[str] = mapped_column(String, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now())
     status: Mapped[str] = mapped_column(String, nullable=False, default="active")
 
 
@@ -38,7 +38,7 @@ class AuditLog(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     session_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    timestamp: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.now())
     user_query_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     extracted_entities: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=True)
     red_flags_detected: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -79,12 +79,15 @@ class MedicationJourney(Base):
     status: Mapped[str] = mapped_column(
         PGEnum(JourneyStatus, name="journey_status", create_type=False), nullable=False, default=JourneyStatus.active
     )
-    start_date: Mapped[datetime] = mapped_column(nullable=False)
-    end_date: Mapped[datetime] = mapped_column(nullable=True)               # None = ongoing
+    start_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     reset_count: Mapped[int] = mapped_column(Integer, default=0)
     clinical_notes: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
@@ -113,7 +116,7 @@ class PrescribedDose(Base):
     frequency: Mapped[str] = mapped_column(String(50), nullable=False, default="Daily")  # "Daily"
     instructions: Mapped[str] = mapped_column(Text, nullable=True)              # "Take with full glass of water..."
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     journey: Mapped["MedicationJourney"] = relationship("MedicationJourney", back_populates="prescribed_doses")
     log_entries: Mapped[list["MedicationLogEntry"]] = relationship(
@@ -131,9 +134,9 @@ class MedicationLog(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     journey_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("medication_journey.id"), nullable=False)
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    time_taken: Mapped[datetime] = mapped_column(nullable=False)               # The "08:30 AM" the user selects
+    time_taken: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     journey: Mapped["MedicationJourney"] = relationship("MedicationJourney", back_populates="logs")
     entries: Mapped[list["MedicationLogEntry"]] = relationship(
@@ -175,7 +178,7 @@ class Achievement(Base):
     icon: Mapped[str] = mapped_column(String(100), nullable=True)               # icon name for Flutter
     required_value: Mapped[int] = mapped_column(Integer, nullable=False)        # e.g. 7 for 7-day streak
     badge_color: Mapped[str] = mapped_column(String(20), nullable=True)         # hex color for Flutter UI
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user_achievements: Mapped[list["UserAchievement"]] = relationship(
         "UserAchievement", back_populates="achievement"
@@ -192,8 +195,8 @@ class UserAchievement(Base):
     user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     achievement_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("achievement.id"), nullable=False)
     unlocked: Mapped[bool] = mapped_column(Boolean, default=False)
-    unlocked_at: Mapped[datetime] = mapped_column(nullable=True)
+    unlocked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
     current_progress: Mapped[int] = mapped_column(Integer, default=0)           # e.g. current streak count
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     achievement: Mapped["Achievement"] = relationship("Achievement", back_populates="user_achievements")

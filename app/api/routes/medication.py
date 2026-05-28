@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import uuid
 import math
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -86,7 +86,6 @@ async def _compute_stats(
 ) -> JourneyStatsOut:
     """Compute streak and adherence stats for a journey."""
 
-    # All logs for this journey, ordered newest-first
     logs_result = await db.execute(
         select(MedicationLog)
         .options(selectinload(MedicationLog.entries))
@@ -106,7 +105,11 @@ async def _compute_stats(
         )
         days_remaining = None
         if journey.end_date:
-            end = journey.end_date if journey.end_date.tzinfo else journey.end_date.replace(tzinfo=timezone.utc)
+            end = (
+                journey.end_date
+                if journey.end_date.tzinfo
+                else journey.end_date.replace(tzinfo=timezone.utc)
+            )
             days_remaining = max(0, (end - _utcnow()).days)
 
         return JourneyStatsOut(
@@ -122,46 +125,54 @@ async def _compute_stats(
             last_log_date=None,
             interrupted=False,
             days_since_last_log=None,
+            completed_dates=[],  # <--- Tambahan
         )
 
-    # Unique log dates (calendar day)
+    # Unique log dates HANYA untuk hari di mana user BENAR-BENAR minum obat (taken = True)
     log_dates = sorted(
         {
             (log.time_taken.date() if hasattr(log.time_taken, "date") else log.time_taken)
             for log in logs
+            if any(e.taken for e in log.entries)
         },
         reverse=True,
     )
+
+    # Sort Ascending khusus untuk dilempar ke kalender Flutter
+    completed_dates = sorted(list(log_dates))
+
     today = _utcnow().date()
 
     # Current streak
     current_streak = 0
     expected = today
-    for i, d in enumerate(log_dates):
-        if i == 0:
-            if (today - d).days > 1:
-                break
-            current_streak = 1
-            expected = d - timedelta(days=1)
-        else:
-            if d == expected:
-                current_streak += 1
+    if log_dates:
+        for i, d in enumerate(log_dates):
+            if i == 0:
+                if (today - d).days > 1:
+                    break
+                current_streak = 1
                 expected = d - timedelta(days=1)
             else:
-                break
+                if d == expected:
+                    current_streak += 1
+                    expected = d - timedelta(days=1)
+                else:
+                    break
 
     # Longest streak
     longest_streak = 0
-    temp = 1
-    prev = log_dates[0]
-    for d in log_dates[1:]:
-        if (prev - d).days == 1:
-            temp += 1
-        else:
-            longest_streak = max(longest_streak, temp)
-            temp = 1
-        prev = d
-    longest_streak = max(longest_streak, temp)
+    if log_dates:
+        temp = 1
+        prev = log_dates[0]
+        for d in log_dates[1:]:
+            if (prev - d).days == 1:
+                temp += 1
+            else:
+                longest_streak = max(longest_streak, temp)
+                temp = 1
+            prev = d
+        longest_streak = max(longest_streak, temp)
 
     # Dose totals
     total_taken = sum(1 for log in logs for e in log.entries if e.taken)
@@ -170,15 +181,27 @@ async def _compute_stats(
     adherence_percent = round((total_taken / total * 100), 1) if total else 0.0
 
     # Days elapsed / remaining
-    start = journey.start_date if journey.start_date.tzinfo else journey.start_date.replace(tzinfo=timezone.utc)
+    start = (
+        journey.start_date
+        if journey.start_date.tzinfo
+        else journey.start_date.replace(tzinfo=timezone.utc)
+    )
     days_elapsed = (_utcnow() - start).days
     days_remaining = None
     if journey.end_date:
-        end = journey.end_date if journey.end_date.tzinfo else journey.end_date.replace(tzinfo=timezone.utc)
+        end = (
+            journey.end_date
+            if journey.end_date.tzinfo
+            else journey.end_date.replace(tzinfo=timezone.utc)
+        )
         days_remaining = max(0, (end - _utcnow()).days)
 
     last_log = logs[0]
-    last_log_date = last_log.time_taken if last_log.time_taken.tzinfo else last_log.time_taken.replace(tzinfo=timezone.utc)
+    last_log_date = (
+        last_log.time_taken
+        if last_log.time_taken.tzinfo
+        else last_log.time_taken.replace(tzinfo=timezone.utc)
+    )
     days_since = (_utcnow() - last_log_date).days
     interrupted = days_since > 2
     on_track = not interrupted and adherence_percent >= 80.0
@@ -196,6 +219,7 @@ async def _compute_stats(
         last_log_date=last_log_date,
         interrupted=interrupted,
         days_since_last_log=days_since,
+        completed_dates=completed_dates,  # <--- Tambahan kirim ke frontend
     )
 
 
@@ -290,6 +314,17 @@ async def get_journey_stats(journey_id: uuid.UUID, current_user: UserDep, db: DB
     journey = await _get_journey_or_404(journey_id, user_id, db)
     return await _compute_stats(journey, user_id, db)
 
+@router.delete(
+    "/journeys/{journey_id}", status_code=status.HTTP_200_OK, summary="Delete a medication journey"
+)
+async def delete_journey(journey_id: uuid.UUID, current_user: UserDep, db: DBDep):
+    user_id: str = current_user["user_id"]
+    journey = await _get_journey_or_404(journey_id, user_id, db)
+
+    await db.delete(journey)
+    await db.commit()
+
+    return {"message": "Journey successfully deleted."}
 
 # ── Reset / Adjust Journey ────────────────────────────────────────────────────
 
@@ -395,6 +430,38 @@ async def create_medication_log(body: MedicationLogCreate, current_user: UserDep
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot log doses for a non-active journey.",
+        )
+
+    frequency_map = {
+        "Daily": 1,
+        "Once Daily": 1,
+        "Twice daily": 2,
+        "Three times daily": 3,
+        "Weekly": 1,
+    }
+    active_doses = [d for d in journey.prescribed_doses if d.is_active]
+    max_logs_allowed = 1
+    for d in active_doses:
+        max_logs_allowed = max(max_logs_allowed, frequency_map.get(d.frequency, 1))
+
+    dt = body.time_taken
+    start_of_day = datetime(dt.year, dt.month, dt.day, tzinfo=dt.tzinfo)
+    end_of_day = start_of_day + timedelta(days=1)
+
+    logs_today_result = await db.execute(
+        select(func.count(MedicationLog.id)).where(
+            MedicationLog.journey_id == journey.id,
+            MedicationLog.user_id == user_id,
+            MedicationLog.time_taken >= start_of_day,
+            MedicationLog.time_taken < end_of_day,
+        )
+    )
+    today_logs_count = logs_today_result.scalar() or 0
+
+    if today_logs_count >= max_logs_allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Maksimal konsumsi obat untuk hari ini ({max_logs_allowed} kali) sudah tercapai.",
         )
 
     # Validate all prescribed_dose_ids belong to this journey

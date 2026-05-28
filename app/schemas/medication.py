@@ -7,7 +7,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AwareDatetime
 
 
 # ── Prescribed Dose ───────────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ class PrescribedDoseUpdate(BaseModel):
 class JourneyCreate(BaseModel):
     name: str = Field(..., examples=["Rifampicin & Isoniazid"])
     start_date: datetime
-    end_date: Optional[datetime] = None
+    end_date: Optional[AwareDatetime] = None
     clinical_notes: Optional[str] = None
     prescribed_doses: list[PrescribedDoseCreate] = []
 
@@ -56,12 +56,12 @@ class JourneyOut(BaseModel):
     user_id: str
     name: str
     status: str
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: AwareDatetime
+    end_date: Optional[AwareDatetime] = None
     reset_count: int
     clinical_notes: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
+    created_at: AwareDatetime
+    updated_at: AwareDatetime
     prescribed_doses: list[PrescribedDoseOut] = []
 
     model_config = {"from_attributes": True}
@@ -72,10 +72,10 @@ class JourneyListItem(BaseModel):
     id: uuid.UUID
     name: str
     status: str
-    start_date: datetime
-    end_date: Optional[datetime] = None
+    start_date: AwareDatetime
+    end_date: Optional[AwareDatetime] = None
     on_track: bool                          # derived: no missed doses in last 3 days
-    last_log_date: Optional[datetime] = None
+    last_log_date: Optional[AwareDatetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -94,7 +94,7 @@ class LogEntryIn(BaseModel):
 
 class MedicationLogCreate(BaseModel):
     journey_id: uuid.UUID
-    time_taken: datetime = Field(..., description="Exact datetime the user took the dose")
+    time_taken: AwareDatetime = Field(..., description="Exact datetime the user took the dose")
     entries: list[LogEntryIn] = Field(..., min_length=1)
     notes: Optional[str] = None
 
@@ -114,9 +114,9 @@ class MedicationLogOut(BaseModel):
     id: uuid.UUID
     journey_id: uuid.UUID
     user_id: str
-    time_taken: datetime
+    time_taken: AwareDatetime
     notes: Optional[str] = None
-    created_at: datetime
+    created_at: AwareDatetime
     entries: list[LogEntryOut] = []
 
     model_config = {"from_attributes": True}
@@ -164,7 +164,7 @@ class AchievementOut(BaseModel):
 class UserAchievementOut(BaseModel):
     achievement: AchievementOut
     unlocked: bool
-    unlocked_at: Optional[datetime] = None
+    unlocked_at: Optional[AwareDatetime] = None
     current_progress: int
     percent: float              # current_progress / required_value * 100, capped at 100
 
@@ -189,6 +189,7 @@ class JourneyStatsOut(BaseModel):
     days_elapsed: int
     days_remaining: Optional[int] = None
     on_track: bool
-    last_log_date: Optional[datetime] = None
+    last_log_date: Optional[AwareDatetime] = None
     interrupted: bool           # True if last log > 2 days ago
     days_since_last_log: Optional[int] = None
+    completed_dates: list[datetime] = []
