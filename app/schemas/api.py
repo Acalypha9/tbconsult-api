@@ -1,5 +1,30 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional, Any
+
+
+# ── Auth Schemas ─────────────────────────────────────────────────────────────
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+
+class UserOut(BaseModel):
+    id: str
+    email: EmailStr
+    full_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserOut
 
 class ChatRequest(BaseModel):
     session_id: Optional[str] = None
