@@ -33,7 +33,7 @@ class RerankService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(self.endpoint, headers=headers, json=payload)
                 response.raise_for_status()
                 data = response.json()
@@ -65,6 +65,9 @@ class RerankService:
                 # Sort and return top_k
                 results = sorted(results, key=lambda x: x["relevance_score"], reverse=True)[:top_k]
                 return results
+        except (httpx.ReadTimeout, httpx.ConnectError, httpx.TimeoutException) as e:
+            logger.warning(f"Reranking request timed out or failed to connect: {e}")
+            return [{"index": i, "relevance_score": 1.0, "text": doc} for i, doc in enumerate(documents[:top_k])]
         except httpx.HTTPStatusError as e:
             logger.error(f"Reranking HTTP error: {e.response.status_code} - {e.response.text}")
             return [{"index": i, "relevance_score": 1.0, "text": doc} for i, doc in enumerate(documents[:top_k])]

@@ -21,7 +21,13 @@ class Settings(BaseSettings):
     
     COHERE_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
-    
+    MAPS_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+
+    # GCP Storage Configuration
+    GOOGLE_CLOUD_PROJECT_ID: str = ""
+    GOOGLE_CLOUD_STORAGE_BUCKET: str = ""
+    GOOGLE_CLOUD_CREDENTIALS: str = ""
 
     
     DIGITALOCEAN_TIMEOUT_MS: int = 15000

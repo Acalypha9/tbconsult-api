@@ -1,17 +1,20 @@
 """Add medication journey, logs, and achievement tables
 
-Revision ID: 002_medication_journey
+Revision ID: da24b49ea38f
 Revises:
 Create Date: 2025-01-01 00:00:00.000000
 """
+from typing import Sequence, Union
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "002_medication_journey"
-down_revision = "c32aeaec9907"
-branch_labels = None
-depends_on = None
+# revision identifiers, used by Alembic.
+revision: str = 'da24b49ea38f'
+down_revision: Union[str, None] = 'c32aeaec9907'
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:

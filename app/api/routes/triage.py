@@ -29,21 +29,22 @@ async def chat(
     session_id = request.session_id
 
     try:
-        state = await run_triage(request.message, session_id, db)
+        chat_history = [{"role": m.role, "content": m.content} for m in request.history]
+        state = await run_triage(
+            request.message,
+            session_id,
+            db,
+            chat_history=chat_history,
+            latitude=request.latitude,
+            longitude=request.longitude,
+        )
         processing_time_ms = int((time.time() - start_time) * 1000)
 
         triage_decision = state.get("triage_decision", {})
-        risk_level = triage_decision.get("risk_level", "Low")
+        risk_level = triage_decision.get("risk_level", "")
         red_flags = state.get("red_flags", [])
         sources = triage_decision.get("sources", [])
         response_text = state.get("response_text", "")
-
-        if state.get("is_red_flag"):
-            risk_level = "High"
-            response_text = (
-                "URGENT: Your symptoms indicate a potential medical emergency. "
-                "Please visit the nearest emergency room or contact emergency services immediately."
-            )
 
         response = ChatResponse(
             risk_level=risk_level,

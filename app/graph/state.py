@@ -24,3 +24,5 @@ class TriageState(TypedDict):
     processing_start_ms: int
     
     db_session: Any  # AsyncSession passed from route handler
+    latitude: float
+    longitude: float

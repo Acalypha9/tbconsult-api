@@ -1,0 +1,40 @@
+# Ignore virtual environment directories
+.venv/
+venv/
+env/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore local environment configuration
+.env
+.env.local
+
+# Ignore git directories
+.git/
+.github/
+
+# Ignore test caches and outputs
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Ignore Docker files themselves
+Dockerfile
+docker-compose.yaml
+
+# Ignore local source documents that might be large
+scripts/sources/*
+!scripts/sources/.gitkeep

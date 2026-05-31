@@ -16,6 +16,17 @@ def should_extract(state: TriageState) -> str:
         return "end"
     return "nlu_extraction"
 
+def should_retrieve(state: TriageState) -> str:
+    from app.graph.nodes.generate import _count_bot_turns, _is_informational_question
+    
+    if _is_informational_question(state.get("user_message", "")):
+        return "retrieval"
+        
+    bot_turns = _count_bot_turns(state.get("chat_history", []))
+    if bot_turns < 5:
+        return "generate"
+    return "retrieval"
+
 def should_search_web(state: TriageState) -> str:
     retrieved_docs = state.get("retrieved_docs", [])
     if len(retrieved_docs) < 3:
@@ -49,7 +60,14 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_edge("nlu_extraction", "retrieval")
+workflow.add_conditional_edges(
+    "nlu_extraction",
+    should_retrieve,
+    {
+        "generate": "generate",
+        "retrieval": "retrieval"
+    }
+)
 
 workflow.add_conditional_edges(
     "retrieval",
@@ -77,18 +95,29 @@ workflow.add_edge("guardrail", END)
 
 graph = workflow.compile()
 
-async def run_triage(user_message: str, session_id: str, db=None) -> TriageState:
+async def run_triage(
+    user_message: str,
+    session_id: str,
+    db=None,
+    chat_history: list[dict] = None,
+    latitude: float = None,
+    longitude: float = None,
+) -> TriageState:
     initial_state = {
         "user_message": user_message,
         "session_id": session_id,
         "processing_start_ms": int(time.time() * 1000),
         "db_session": db,
+        "chat_history": chat_history or [],
+        "latitude": latitude,
+        "longitude": longitude,
     }
     
     result = await graph.ainvoke(initial_state)
     
     if result.get("is_red_flag"):
-        is_indonesian = any(word in user_message.lower() for word in ["saya", "batuk", "demam", "tbc", "rumah", "sakit", "di", "ada", "yang"])
+        from app.graph.nodes.generate import _detect_indonesian
+        is_indonesian = _detect_indonesian(user_message)
         
         response_text = (
             "DARURAT: Gejala Anda menunjukkan kemungkinan kondisi darurat medis. Silakan segera kunjungi unit gawat darurat terdekat atau hubungi layanan darurat."

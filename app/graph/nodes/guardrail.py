@@ -9,6 +9,14 @@ def validate_output(state: TriageState) -> dict:
     triage_decision = state.get("triage_decision", {})
     response_text = state.get("response_text", "")
     
+    is_interview = not triage_decision.get("risk_level")
+    
+    if is_interview:
+        return {
+            "triage_decision": triage_decision,
+            "response_text": response_text
+        }
+    
     risk_level = triage_decision.get("risk_level")
     if risk_level not in ["Low", "Moderate", "High"]:
         triage_decision["risk_level"] = "Low"

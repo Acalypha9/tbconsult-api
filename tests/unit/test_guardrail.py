@@ -1,4 +1,6 @@
 from app.graph.nodes.guardrail import validate_output
+from app.graph.nodes.generate import _is_informational_question
+from app.graph.workflow import should_retrieve
 
 def _make_state(response_text: str, risk_level: str = "Low", next_steps: list | None = None) -> dict:
     return {
@@ -41,3 +43,20 @@ def test_no_source_citation():
     result = validate_output(state)
     # Without [Source N], guardrail replaces with safe response
     assert "consult a healthcare professional" in result["response_text"].lower()
+
+
+def test_tb_diet_question_is_informational():
+    assert _is_informational_question("What foods should I eat during TB treatment?")
+
+
+def test_symptom_report_is_not_informational():
+    assert not _is_informational_question("I have been coughing for three weeks")
+
+
+def test_workflow_should_retrieve_on_informational():
+    state = {"user_message": "What foods should I eat during TB treatment?", "chat_history": []}
+    assert should_retrieve(state) == "retrieval"
+    
+def test_workflow_should_generate_on_symptom_early_turns():
+    state = {"user_message": "I am coughing", "chat_history": []}
+    assert should_retrieve(state) == "generate"

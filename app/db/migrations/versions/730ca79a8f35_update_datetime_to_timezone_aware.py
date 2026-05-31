@@ -1,7 +1,7 @@
 """update datetime to timezone aware
 
 Revision ID: 730ca79a8f35
-Revises: 002_medication_journey
+Revises: da24b49ea38f
 Create Date: 2026-05-28 09:28:32.790590
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '730ca79a8f35'
-down_revision: Union[str, None] = '002_medication_journey'
+down_revision: Union[str, None] = 'da24b49ea38f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

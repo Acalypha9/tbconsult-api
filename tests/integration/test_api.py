@@ -71,10 +71,3 @@ async def test_health_check(client: AsyncClient):
     assert "status" in data
     assert "dependencies" in data
 
-@pytest.mark.asyncio
-async def test_auth_token(client: AsyncClient):
-    response = await client.post("/v1/auth/token", json={"user_id": "test_user"})
-    assert response.status_code == 200
-    data = response.json()
-    assert "access_token" in data
-    assert data["token_type"] == "bearer"

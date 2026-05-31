@@ -47,11 +47,12 @@ async def retrieve_documents(state: TriageState) -> dict:
     
     # 1. Generate a history-aware query manually via LCEL to avoid langchain.chains dependency
     contextualize_q_system_prompt = (
-        "Given a chat history and the latest user question "
-        "which might reference context in the chat history, "
-        "formulate a standalone question which can be understood "
-        "without the chat history. Do NOT answer the question, "
-        "just reformulate it if needed and otherwise return it as is."
+        "You are an expert medical triage assistant. "
+        "Review the entire chat history and the latest user response. "
+        "Extract all medical symptoms, risk factors, durations, and conditions reported by the patient across the ENTIRE conversation. "
+        "Combine them into a single, comprehensive medical search query for a database. "
+        "If the user is answering 'no' or 'tidak' to a question, ensure you still include the previously mentioned positive symptoms in the query. "
+        "Output ONLY the search query, without any conversational filler."
     )
     
     contextualize_q_prompt = ChatPromptTemplate.from_messages(
@@ -68,7 +69,7 @@ async def retrieve_documents(state: TriageState) -> dict:
     try:
         # Convert simple dict chat_history to Langchain Message objects
         lc_history = []
-        for msg in chat_history[-3:]:
+        for msg in chat_history:
             if msg.get('role') == 'user':
                 lc_history.append(HumanMessage(content=msg.get('content', '')))
             elif msg.get('role') == 'assistant':

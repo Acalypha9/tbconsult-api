@@ -1,0 +1,17 @@
+# Normalize line endings to LF on commit, checkout as-is on Windows
+* text=auto eol=lf
+
+# Force LF for shell scripts (they must have LF to run on Linux/Docker)
+*.sh text eol=lf
+
+# Force CRLF for Windows-only batch files
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary files — no line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary

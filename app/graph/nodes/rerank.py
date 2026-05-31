@@ -19,11 +19,17 @@ async def rerank_documents(state: TriageState) -> dict:
         return {"reranked_docs": []}
         
     user_message = state.get("user_message", "")
+    chat_history = state.get("chat_history", [])
     extracted_entities = state.get("extracted_entities", {})
+    
+    patient_statements = [m.get("content", "") for m in chat_history if m.get("role") == "user"]
+    if user_message not in patient_statements:
+        patient_statements.append(user_message)
+        
     symptoms = extracted_entities.get("symptoms", [])
     present_symptoms = [s.get("name") for s in symptoms if s.get("present")]
     
-    query = user_message
+    query = " ".join(patient_statements)
     if present_symptoms:
         query += " " + " ".join(present_symptoms)
         

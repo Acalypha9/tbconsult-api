@@ -24,8 +24,11 @@ async def reset_database():
         await conn.execute(text("DROP TABLE IF EXISTS langchain_pg_embedding CASCADE;"))
         await conn.execute(text("DROP TABLE IF EXISTS langchain_pg_collection CASCADE;"))
         
+        print("Ensuring pgvector extension is enabled...")
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        
     await engine.dispose()
-    print("Database cleared.")
+    print("Database cleared and initialized.")
 
 def run_migrations():
     print("Running alembic upgrade head...")
