@@ -1,6 +1,6 @@
 import logging
 from app.graph.state import TriageState
-from app.services.llm import llm_service
+from app.services.llm import get_llm_service
 from app.schemas.triage import TriageDecision
 from app.services.tools import tools
 
@@ -278,7 +278,7 @@ async def _answer_informational_question(user_prompt: str, user_message: str, ch
     else:
         system_prompt += "\nIMPORTANT: You MUST respond in Indonesian (Bahasa Indonesia)."
 
-    answer_text = await llm_service.invoke_llm(
+    answer_text = await get_llm_service().invoke_llm(
         system_prompt=system_prompt,
         user_message=user_prompt,
         temperature=0.7,
@@ -456,7 +456,7 @@ RULES (NON-NEGOTIABLE):
 7. Respond in English.
 """
 
-    answer_text = await llm_service.invoke_llm(
+    answer_text = await get_llm_service().invoke_llm(
         system_prompt=system_prompt,
         user_message=user_prompt,
         temperature=0.5,
@@ -619,7 +619,7 @@ async def _handle_interview_phase(user_prompt: str, user_message: str, chat_hist
     else:
         system_prompt += "\nIMPORTANT: You MUST respond in Indonesian (Bahasa Indonesia)."
 
-    question_text = await llm_service.invoke_llm(
+    question_text = await get_llm_service().invoke_llm(
         system_prompt=system_prompt,
         user_message=user_prompt,
         temperature=0.6,
@@ -703,7 +703,7 @@ async def _handle_extended_phase(user_prompt: str, user_message: str, state: Tri
 
     tool_results = state.get("tool_results", [])
     if not tool_results:
-        message = await llm_service.invoke_llm_with_tools(
+        message = await get_llm_service().invoke_llm_with_tools(
             system_prompt=system_prompt,
             user_message=user_prompt,
             tools=tools
@@ -716,7 +716,7 @@ async def _handle_extended_phase(user_prompt: str, user_message: str, state: Tri
                 "sdui_components": []
             }
 
-    triage_decision = await llm_service.invoke_llm_structured(
+    triage_decision = await get_llm_service().invoke_llm_structured(
         system_prompt=system_prompt,
         user_message=user_prompt,
         tool_schema=TriageDecision.model_json_schema()
@@ -749,7 +749,7 @@ async def _handle_forced_assessment(user_prompt: str, user_message: str, state: 
 
     tool_results = state.get("tool_results", [])
     if not tool_results:
-        message = await llm_service.invoke_llm_with_tools(
+        message = await get_llm_service().invoke_llm_with_tools(
             system_prompt=forced_prompt,
             user_message=user_prompt,
             tools=tools
@@ -762,7 +762,7 @@ async def _handle_forced_assessment(user_prompt: str, user_message: str, state: 
                 "sdui_components": []
             }
 
-    triage_decision = await llm_service.invoke_llm_structured(
+    triage_decision = await get_llm_service().invoke_llm_structured(
         system_prompt=forced_prompt,
         user_message=user_prompt,
         tool_schema=TriageDecision.model_json_schema()

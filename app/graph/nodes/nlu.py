@@ -1,6 +1,6 @@
 import logging
 from app.graph.state import TriageState
-from app.services.llm import llm_service
+from app.services.llm import get_llm_service
 from app.schemas.nlu import NLUExtraction
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ async def extract_entities(state: TriageState) -> dict:
     
     try:
         schema = NLUExtraction.model_json_schema()
-        extracted_data = await llm_service.invoke_llm_structured(
+        extracted_data = await get_llm_service().invoke_llm_structured(
             system_prompt=SYSTEM_PROMPT,
             user_message=user_message,
             tool_schema=schema

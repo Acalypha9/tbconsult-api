@@ -1,7 +1,7 @@
 import logging
 import asyncio
 from app.graph.state import TriageState
-from app.services.llm import llm_service
+from app.services.llm import get_llm_service
 from app.core.config import settings
 
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder

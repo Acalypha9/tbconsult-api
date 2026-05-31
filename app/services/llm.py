@@ -223,4 +223,11 @@ class LLMService:
             logger.error(f"LLM async batch embedding failed: {e}")
             raise LLMUnavailableError(f"LLM error: {e}")
 
-llm_service = LLMService()
+
+_llm_service: Optional[LLMService] = None
+
+def get_llm_service() -> LLMService:
+    global _llm_service
+    if _llm_service is None:
+        _llm_service = LLMService()
+    return _llm_service
