@@ -12,19 +12,35 @@ from langchain_core.output_parsers import StrOutputParser
 
 logger = logging.getLogger(__name__)
 
-# Initialize LangChain models wrapping DigitalOcean Serverless Inference
-chat_model = ChatOpenAI(
-    base_url=settings.DIGITALOCEAN_BASE_URL,
-    api_key=settings.DIGITALOCEAN_API_KEY,
-    model=settings.LLM_MODEL_ID,
-    temperature=0.0
-)
-embeddings = OpenAIEmbeddings(
-    base_url=settings.DIGITALOCEAN_BASE_URL,
-    api_key=settings.DIGITALOCEAN_API_KEY,
-    model=settings.EMBED_MODEL_ID,
-    check_embedding_ctx_length=False
-)
+# Lazy singletons – avoid instantiation at import time so that tests
+# (and any other importer) don't need live API credentials.
+_chat_model = None
+_embeddings = None
+
+
+def _get_chat_model():
+    global _chat_model
+    if _chat_model is None:
+        _chat_model = ChatOpenAI(
+            base_url=settings.DIGITALOCEAN_BASE_URL,
+            api_key=settings.DIGITALOCEAN_API_KEY,
+            model=settings.LLM_MODEL_ID,
+            temperature=0.0,
+        )
+    return _chat_model
+
+
+def _get_embeddings():
+    global _embeddings
+    if _embeddings is None:
+        _embeddings = OpenAIEmbeddings(
+            base_url=settings.DIGITALOCEAN_BASE_URL,
+            api_key=settings.DIGITALOCEAN_API_KEY,
+            model=settings.EMBED_MODEL_ID,
+            check_embedding_ctx_length=False,
+        )
+    return _embeddings
+
 
 async def retrieve_documents(state: TriageState) -> dict:
     extracted_entities = state.get("extracted_entities", {})
@@ -38,7 +54,7 @@ async def retrieve_documents(state: TriageState) -> dict:
     db_url = str(settings.DATABASE_URL).replace("postgresql+asyncpg", "postgresql+psycopg")
     
     vectorstore = PGVector(
-        embeddings=embeddings,
+        embeddings=_get_embeddings(),
         collection_name="knowledge_base",
         connection=db_url,
         use_jsonb=True,
@@ -64,7 +80,7 @@ async def retrieve_documents(state: TriageState) -> dict:
     )
     
     # Create an LCEL chain for query rephrasing
-    rephrase_chain = contextualize_q_prompt | chat_model | StrOutputParser()
+    rephrase_chain = contextualize_q_prompt | _get_chat_model() | StrOutputParser()
     
     try:
         # Convert simple dict chat_history to Langchain Message objects
