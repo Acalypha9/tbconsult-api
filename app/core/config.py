@@ -22,7 +22,6 @@ class Settings(BaseSettings):
 
     COHERE_API_KEY: str = ""
     TAVILY_API_KEY: str = ""
-    MAPS_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
 
     # GCP Storage Configuration
@@ -31,9 +30,9 @@ class Settings(BaseSettings):
     GOOGLE_CLOUD_CREDENTIALS: str = ""
 
 
-    DIGITALOCEAN_TIMEOUT_MS: int = 15000
-    WEB_SEARCH_TIMEOUT_MS: int = 1500
-    PGVECTOR_TIMEOUT_MS: int = 2000
+    DIGITALOCEAN_TIMEOUT_MS: int = 90000
+    WEB_SEARCH_TIMEOUT_MS: int = 10000
+    PGVECTOR_TIMEOUT_MS: int = 10000
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

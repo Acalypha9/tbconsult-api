@@ -22,7 +22,7 @@ This is the FastAPI backend for the TBConsult medical triage chatbot. It uses La
 Copy the example environment file and fill in your DigitalOcean and database credentials.
 ```bash
 # Navigate to the backend directory
-cd backend
+cd tbconsult-api
 
 # Copy env template
 cp .env.example .env
@@ -54,9 +54,13 @@ cp .env.example .env
    * **Windows PowerShell:** `.venv\Scripts\Activate.ps1`
    * **Git Bash / macOS / Linux:** `source .venv/Scripts/activate`
 3. **Install the package and dependencies:**
+   Use the virtual environment's `pip` to ensure packages are installed in the correct environment:
    ```bash
-   # Install in editable mode along with dev dependencies
-   pip install -e .
+   # Windows PowerShell / Git Bash
+   .venv/Scripts/python -m pip install -e .
+
+   # Unix / macOS
+   .venv/bin/python -m pip install -e .
    ```
 4. **Run the development server:**
    Always use the virtual environment's explicit Python path to avoid shell path resolution issues (especially on Windows):
@@ -70,6 +74,9 @@ cp .env.example .env
    # Unix / macOS
    .venv/bin/python -m uvicorn app.main:app --reload --port 8000
    ```
+
+   > **Troubleshooting:** If you encounter `No module named uvicorn`, it means the dependencies were installed in a different Python environment. Ensure you are using the `.venv` paths shown above for both `pip install` and `python -m uvicorn`.
+
 
 ---
 
@@ -109,7 +116,7 @@ Make sure your virtual environment is active, then execute:
 
 To populate the chatbot's knowledge base with medical guidelines:
 
-1. **Place source documents:** Copy your `.txt`, `.md`, or `.pdf` files into `backend/scripts/sources/`.
+1. **Place source documents:** Copy your `.txt`, `.md`, or `.pdf` files into `tbconsult-api/scripts/sources/`.
 2. **Run ingestion script:**
 
 ### Option A: Using Docker

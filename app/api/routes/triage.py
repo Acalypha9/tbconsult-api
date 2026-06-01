@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.api import ChatRequest, ChatResponse
 from app.graph.workflow import run_triage
 from app.services.audit import AuditService
+from app.services.gemini_service import GeminiService
 from app.core.exceptions import LLMUnavailableError, RetrievalError
 from app.api.deps import get_current_user
 from app.db.session import get_db
@@ -29,9 +30,24 @@ async def chat(
     session_id = request.session_id
 
     try:
+        final_user_message = request.message
+        if request.images:
+            try:
+                image_analysis = await GeminiService.analyze_images(
+                    images_b64=request.images,
+                    prompt=request.message if request.message.strip() else None,
+                )
+                if image_analysis:
+                    final_user_message = GeminiService.combine_with_user_message(
+                        user_message=request.message,
+                        image_analysis=image_analysis,
+                    )
+            except Exception:
+                pass
+
         chat_history = [{"role": m.role, "content": m.content} for m in request.history]
         state = await run_triage(
-            request.message,
+            final_user_message,
             session_id,
             db,
             chat_history=chat_history,

@@ -128,7 +128,7 @@ CRITICAL MEDICAL GUARDRAILS & STYLE (NON-NEGOTIABLE):
 3. NO DOSING OR PRESCRIPTION: Never provide or adjust medication names, dosages, or treatment timelines.
 4. IF INFO IS MISSING: Do not state "context doesn't mention this". Instead, smoothly advise them to consult a professional for specific personal guidance.
 5. CLOSING: Always end by offering help to connect them with an expert (e.g. if their question is about diet/food/nutrition, offer to connect them with a nutritionist; if it is about general TB symptoms, transmission, or clinic search, offer to help them find a doctor or clinic location).
-6. OUT-OF-SCOPE QUESTIONS: If the user's message is about topics completely unrelated to Tuberculosis (TB), health, medical advice, nutrition/diet, or general well-being, you MUST respond politely in the SAME language as the patient: in English (e.g., "I can't help with topics out of scope. I'm just an AI assistant to help you to diagnose TB and provide health/nutrition guidance. Is there anything else about your symptoms or TB I can help you with, please?") or in Indonesian (e.g., "Saya tidak dapat membantu dengan topik di luar cakupan. Saya hanya asisten AI untuk membantu Anda mendiagnosis TB dan memberikan panduan kesehatan/nutrisi. Apakah ada hal lain tentang gejala Anda atau TB yang bisa saya bantu, silakan?").
+6. OUT-OF-SCOPE QUESTIONS & IMAGES: If the user's message or attached image is completely unrelated to Tuberculosis (TB), health, medical advice, nutrition/diet, or general well-being, you MUST provide a very short, direct answer identifying it (e.g., "This is a goldfish. Is there anything else related to health or TB that I can help with?"). DO NOT write a long refusal. However, if the user attaches an image or asks a question that IS related to health, TB, or nutrition, you MUST respond with a detailed and comprehensive explanation (using words like "furthermore" or "lebih lanjut") to thoroughly analyze the medical/health context.
 7. CHIT-CHAT, GREETINGS & VENTING: If the user engages in chit-chat, greetings (like "halo", "hi", "apa kabar"), venting about their feelings/worries, or basic trivia, respond in an extremely charming, warm, comforting, kind, and supportive manner as a friendly young doctor. Make them feel completely comfortable, safe, and warm, and guide them to discuss their symptoms or health concerns by asking an open-ended question (e.g., in Indonesian: "Halo! Senang sekali bisa menyapa Anda. Bagaimana kondisi Anda hari ini? **Apakah ada gejala atau keluhan kesehatan yang ingin Anda diskusikan?**"). The final guiding question of the greeting/chit-chat response MUST be bolded using markdown double asterisks. Ensure this response makes the conversation feel highly personal, caring, and comforting.
 
 TONE: Empathetic, friendly, informal, calm, reassuring, and charming. Simple language. Respond in the SAME language as the patient. Do NOT use overly formal or robotic phrasing. Use warm, natural, and caring phrasing (e.g. in Indonesian, use words like "ya", "silakan", "semoga cepat sembuh", "saya di sini untuk membantu"). For normal informational answers, always end with a warm, caring closing offering further assistance in the SAME language as the response (e.g., "Is there anything else I can help you with, please?" in English, or "Apakah ada hal lain yang bisa saya bantu, silakan?" in Indonesian). However, for chit-chat/greetings (Rule 7), DO NOT append this closing offer of further assistance; instead, end directly with the open-ended guiding question.
@@ -224,10 +224,28 @@ def _is_greeting(text: str) -> bool:
     return clean in greetings
 
 
+def _detect_facility_type(text: str) -> str:
+    lower = text.lower()
+    if any(w in lower for w in ["apotek", "pharmacy", "pharmacies", "drugstore", "drugstores", "farmasi"]):
+        return "pharmacy"
+    if any(w in lower for w in ["klinik", "clinic", "clinics", "puskesmas"]):
+        return "clinic"
+    return "hospital"
+
+
 def _is_hospital_query(text: str) -> bool:
     lower = text.lower()
-    facility_words = ["rumah sakit", "rs", "rsud", "klinik", "puskesmas", "hospital", "clinic", "hospitals", "clinics"]
-    near_words = ["terdekat", "dekat", "sekitar", "cari", "temukan", "mana", "dimana", "di mana", "nearest", "nearby", "find", "where", "locate", "location", "gps", "jarak", "near", "show", "tunjuk", "tunjukkan", "list", "daftar"]
+    facility_words = [
+        "rumah sakit", "rs", "rsud", "klinik", "puskesmas", "hospital", "clinic", "hospitals", "clinics",
+        "apotek", "farmasi", "pharmacy", "pharmacies", "drugstore", "drugstores"
+    ]
+    near_words = [
+        "terdekat", "dekat", "sekitar", "cari", "temukan", "mana", "dimana", "di mana", 
+        "nearest", "nearby", "find", "where", "locate", "location", "gps", "jarak", "near", 
+        "show", "tunjuk", "tunjukkan", "list", "daftar",
+        "terjauh", "jauh", "furthest", "farthest", "farther", "far",
+        "semua", "all", "jumlah", "count", "berapa", "how many"
+    ]
     
     has_facility = any(w in lower for w in facility_words)
     has_near = any(w in lower for w in near_words)
@@ -345,115 +363,68 @@ async def _answer_hospital_query(
     lang = detect_language(user_message, chat_history)
     is_indonesian = (lang == 'id')
 
-    system_prompt = None
+    from app.services.facilities import FACILITIES, haversine_km
+    import json
 
+    facility_type = _detect_facility_type(user_message)
+    
+    facilities_context = []
+    for f in FACILITIES:
+        f_copy = dict(f)
+        if lat is not None and lng is not None:
+            f_copy["distance_km"] = round(haversine_km(lat, lng, f["lat"], f["lng"]), 2)
+        facilities_context.append(f_copy)
+        
     if lat is not None and lng is not None:
-        from app.services.facilities import find_nearest_facility
-        nearest, dist = find_nearest_facility(lat, lng)
-        if nearest:
-            name = nearest["name"]
-            address = nearest["address"]
-            phone = nearest.get("phone") or ("Tidak tersedia" if is_indonesian else "Not available")
-            hours = nearest.get("operationalHours") or ("24 jam" if is_indonesian else "24 hours")
-            services = ", ".join(nearest.get("services", []))
-            tbc_unit = nearest.get("tbcUnit") or ("Tidak tersedia" if is_indonesian else "Not available")
-            is_dots = "Ya (Tersertifikasi DOTS)" if nearest.get("isDotsCertified") else "Tidak"
-            if not is_indonesian:
-                is_dots = "Yes (DOTS Certified)" if nearest.get("isDotsCertified") else "No"
-            
-            if is_indonesian:
-                system_prompt = f"""\
+        facilities_context.sort(key=lambda x: x.get("distance_km", 99999))
+
+    facilities_str = json.dumps(facilities_context, indent=2, ensure_ascii=False)
+
+    if is_indonesian:
+        system_prompt = f"""\
 You are TBConsult, a professional medical triage assistant specializing in Tuberculosis (TB).
-The patient is asking to find the nearest hospital, clinic, or health facility.
+The user is asking a question about health facilities, clinics, hospitals, or pharmacies in Surabaya.
 
-You must present the details of the nearest facility calculated by the system to the user in a very warm, comforting, and charming character.
+Berikut adalah database fasilitas kesehatan yang tersedia di sistem (diurutkan berdasarkan jarak jika koordinat GPS pengguna tersedia):
+{facilities_str}
 
-Here are the nearest facility details:
-- Name: {name}
-- Distance: {dist:.2f} km
-- Address: {address}
-- Phone: {phone}
-- Operational Hours: {hours}
-- DOTS Certified: {is_dots}
-- TBC Unit: {tbc_unit}
-- Services: {services}
+Koordinat GPS pengguna saat ini:
+- Latitude: {lat}
+- Longitude: {lng}
 
 RULES (NON-NEGOTIABLE):
 1. Gunakan karakter yang ramah, hangat, menenangkan, dan menyenangkan. Bicaralah seperti sahabat yang peduli.
-2. Sebutkan nama layanan kesehatan terdekat tersebut dan jaraknya dengan jelas (dibulatkan ke 2 angka di belakang koma, contoh: "{dist:.2f} km").
-3. Format informasi dengan rapi. Semua judul/label sebelum titik dua (yaitu ":") HARUS ditebalkan (contoh: "**Nama Layanan Kesehatan**:", "**Jarak Terdekat**:", "**Alamat**:", "**Telepon**:", "**Jam Operasional**:", "**Sertifikasi DOTS**:", "**Unit TBC**:", "**Layanan**:").
-4. Karena fasilitas ini tersertifikasi DOTS, jelaskan bahwa fasilitas ini siap menangani perawatan Tuberkulosis (TB) di bawah program DOTS.
-5. Tekankan bahwa mereka dapat menekan tombol di bawah untuk melihat semua lokasi rumah sakit/klinik di peta dan mendapatkan petunjuk arah.
-6. Selalu akhiri dengan kalimat penutup yang hangat dan menawarkan bantuan lebih lanjut (contoh: "Apakah ada hal lain yang bisa saya bantu, silakan?").
-7. JANGAN sertakan sintaks tombol markdown seperti "[Lihat Lokasi Rumah Sakit]" atau sejenisnya di akhir teks respons.
-8. Gunakan bahasa Indonesia sepenuhnya.
+2. JANGAN PERNAH menolak permintaan atau mengatakan sistem memiliki keterbatasan untuk mencari fasilitas terjauh, semua fasilitas, dll. Anda memiliki akses penuh ke seluruh database di atas dan HARUS melayani pertanyaan pengguna apa adanya (baik terdekat, terjauh, jumlah fasilitas, daftar semua fasilitas, dsb.).
+3. Analisis pertanyaan pengguna secara cerdas menggunakan data fasilitas di atas (misalnya mencari terdekat, terjauh, menghitung jumlah faskes, memfilter faskes bersertifikat DOTS, dll.). Jawab pertanyaan mereka secara akurat dan langsung. Jika mereka meminta faskes terjauh, cari faskes dengan 'distance_km' terbesar dari database di atas dan tampilkan datanya secara lengkap.
+4. Sebutkan nama faskes yang relevan, alamat, telepon, jam operasional, status sertifikasi DOTS, dan jaraknya (jika GPS tersedia).
+5. Format informasi detail faskes dengan rapi. Semua judul/label sebelum titik dua (yaitu ":") HARUS ditebalkan (contoh: "**Nama Layanan Kesehatan**:", "**Jarak**:", "**Alamat**:", "**Telepon**:", "**Jam Operasional**:", "**Sertifikasi DOTS**:", "**Unit TBC**:", "**Layanan**:").
+6. Jelaskan relevansi program DOTS jika fasilitas tersebut tersertifikasi DOTS. Jika tidak, jelaskan fungsi praktisnya (seperti menebus obat atau pemeriksaan dasar).
+7. Beritahu mereka bahwa mereka dapat menekan tombol di bawah untuk melihat lokasi di peta dan mendapatkan petunjuk arah.
+8. JANGAN sertakan sintaks tombol markdown seperti "[Lihat Lokasi]" di akhir teks respons.
+9. Gunakan bahasa Indonesia sepenuhnya.
 """
-            else:
-                system_prompt = f"""\
+    else:
+        system_prompt = f"""\
 You are TBConsult, a professional medical triage assistant specializing in Tuberculosis (TB).
-The patient is asking to find the nearest hospital, clinic, or health facility.
+The user is asking a question about health facilities, clinics, hospitals, or pharmacies in Surabaya.
 
-You must present the details of the nearest facility calculated by the system to the user in a very warm, comforting, and charming character.
+Here is the database of available facilities in the system (sorted by distance if GPS coordinates are available):
+{facilities_str}
 
-Here are the nearest facility details:
-- Name: {name}
-- Distance: {dist:.2f} km
-- Address: {address}
-- Phone: {phone}
-- Operational Hours: {hours}
-- DOTS Certified: {is_dots}
-- TBC Unit: {tbc_unit}
-- Services: {services}
+GPS Coordinates of the user:
+- Latitude: {lat}
+- Longitude: {lng}
 
 RULES (NON-NEGOTIABLE):
 1. Use a charming, warm, comforting, and supportive tone. Speak like a caring companion.
-2. Clearly state the name of the nearest facility and its distance (rounded to 2 decimal places, e.g. "{dist:.2f} km").
-3. Format the details cleanly. Any heading/label before a colon MUST be bolded (e.g., "**Name of Health Facility**:", "**Distance**:", "**Address**:", "**Phone**:", "**Operational Hours**:", "**DOTS Certified**:", "**TBC Unit**:", "**Services**:").
-4. Since this facility is DOTS certified, explain that it is equipped and certified to handle Tuberculosis (TB) treatment under the DOTS program.
-5. Emphasize that they can click the button below to view all hospital/clinic locations on the map and get directions.
-6. Always end with a charming closing line (e.g., "Is there anything else I can help you with, please?").
-7. Do NOT include any markdown button syntax like "[View Hospital Locations]" or similar at the end of the text.
-8. Respond in English.
-"""
-        else:
-            lat = None
-
-    if lat is None or lng is None:
-        if is_indonesian:
-            system_prompt = """\
-You are TBConsult, a professional medical triage assistant specializing in Tuberculosis (TB).
-The patient is asking to find the nearest hospital, clinic, or health facility, but the system could not retrieve their current GPS location.
-
-You must explain this to the user in a very warm, comforting, and charming character.
-
-RULES (NON-NEGOTIABLE):
-1. Jelaskan dengan lembut bahwa Anda tidak dapat mengakses lokasi GPS mereka. Sarankan mereka untuk mengaktifkan izin lokasi di pengaturan perangkat mereka agar dapat menemukan fasilitas terdekat yang tepat.
-2. Rekomendasikan dua fasilitas kesehatan utama bersertifikasi DOTS di Surabaya dari data sistem sebagai alternatif:
-   - **RSUD Dr. Soetomo**: Jl. Mayjend Prof. Dr. Moestopo No.6-8, Surabaya. (Tersertifikasi DOTS, Poli Paru lt. 2, Operasional 24 Jam)
-   - **RSAL Dr. Ramelan**: Jl. Gadung No.1, Jagir, Wonokromo, Surabaya. (Tersertifikasi DOTS, Poli Paru, Operasional 24 Jam)
-3. Format informasi dengan rapi. Semua judul/label sebelum titik dua HARUS ditebalkan (contoh: "**Fasilitas Kesehatan**:", "**Alamat**:").
-4. Beritahu mereka bahwa mereka dapat menekan tombol di bawah untuk melihat semua klinik dan rumah sakit yang tersedia di Surabaya langsung pada peta.
-5. Selalu akhiri dengan kalimat penutup yang hangat dan menawarkan bantuan lebih lanjut (contoh: "Apakah ada hal lain yang bisa saya bantu, silakan?").
-6. JANGAN sertakan sintaks tombol markdown seperti "[Lihat Lokasi Rumah Sakit]" di akhir teks.
-7. Gunakan bahasa Indonesia sepenuhnya.
-"""
-        else:
-            system_prompt = """\
-You are TBConsult, a professional medical triage assistant specializing in Tuberculosis (TB).
-The patient is asking to find the nearest hospital, clinic, or health facility, but the system could not retrieve their current GPS location.
-
-You must explain this to the user in a very warm, comforting, and charming character.
-
-RULES (NON-NEGOTIABLE):
-1. Explain gently that you couldn't access their GPS location. Suggest they enable location permissions in their device settings if they'd like to find the exact nearest facility.
-2. Suggest a couple of major DOTS-certified health facilities in Surabaya from the system data:
-   - **RSUD Dr. Soetomo**: Jl. Mayjend Prof. Dr. Moestopo No.6-8, Surabaya. (DOTS Certified, Poli Paru lt. 2, 24 Hours)
-   - **RSAL Dr. Ramelan**: Jl. Gadung No.1, Jagir, Wonokromo, Surabaya. (DOTS Certified, Poli Paru, 24 Hours)
-3. Format the details cleanly. Any heading/label before a colon MUST be bolded (e.g., "**Health Facility**:", "**Address**:").
-4. Tell them they can click the button below to view all available clinics and hospitals in Surabaya on the map.
-5. Always end with a charming closing line (e.g., "Is there anything else I can help you with, please?").
-6. Do NOT include any markdown button syntax like "[View Hospital Locations]" at the end of the text.
-7. Respond in English.
+2. NEVER refuse the user's request or claim that the system has limitations preventing search for the furthest facility, listing all, etc. You have full access to the database of all facilities above and MUST answer their exact question (whether it is nearest, furthest, count, lists, etc.).
+3. Analyze the user's question intelligently using the facility data provided above (e.g., finding the nearest, furthest, counting facilities, filtering by DOTS certification, etc.). Answer their question accurately and directly. If they ask for the furthest facility, identify the facility with the largest 'distance_km' from the database above and display its details.
+4. Clearly mention the relevant facility name(s), address, phone, operational hours, DOTS status, and distance (if GPS is available).
+5. Format the details cleanly. Any heading/label before a colon MUST be bolded (e.g., "**Name of Health Facility**:", "**Distance**:", "**Address**:", "**Phone**:", "**Operational Hours**:", "**DOTS Certified**:", "**TBC Unit**:", "**Services**:").
+6. Explain the relevance of DOTS if the recommended facility is DOTS certified. Otherwise, explain its practical function (like filling prescriptions or basic check-ups).
+7. Emphasize that they can click the button below to view the location on the map and get directions.
+8. Do NOT include any markdown button syntax like "[View Locations]" or similar at the end of the text.
+9. Respond in English.
 """
 
     answer_text = await get_llm_service().invoke_llm(
@@ -461,21 +432,53 @@ RULES (NON-NEGOTIABLE):
         user_message=user_prompt,
         temperature=0.5,
     )
-    logger.info("Hospital query: generated direct answer")
+    logger.info("Facility query: generated direct answer with free will")
 
-    btn_doctor = "Tanya Dokter" if is_indonesian else "Ask Doctor"
-    btn_hospitals = "Lihat Lokasi Rumah Sakit" if is_indonesian else "View Hospital Locations"
-    sdui_components = [
-        {
+    # Detect which facility was recommended by checking if its name/ID is in the generated answer text.
+    # Sort by name length descending to avoid matching substrings of other facilities.
+    recommended_facility = None
+    for f in sorted(FACILITIES, key=lambda x: len(x["name"]), reverse=True):
+        if f["name"].lower() in answer_text.lower() or f["id"].lower() in answer_text.lower():
+            recommended_facility = f
+            break
+
+    # Dynamic button label depending on recommended facility type
+    rec_type = recommended_facility["type"] if recommended_facility else facility_type
+    if rec_type == "pharmacy":
+        btn_hospitals = "Lihat Lokasi Apotek" if is_indonesian else "View Pharmacy Location"
+    elif rec_type == "clinic":
+        btn_hospitals = "Lihat Lokasi Klinik" if is_indonesian else "View Clinic Location"
+    else:
+        btn_hospitals = "Lihat Lokasi Rumah Sakit" if is_indonesian else "View Hospital Location"
+    
+    if recommended_facility:
+        btn_action = {
             "type": "button",
-            "label": btn_doctor,
+            "label": f"Hubungi {recommended_facility['name']}" if is_indonesian else f"Call {recommended_facility['name']}",
+            "action": "call_facility",
+            "phone": recommended_facility.get("phone")
+        }
+        btn_visit_dots = {
+            "type": "button",
+            "label": btn_hospitals,
+            "action": "visit_dots",
+            "facility_id": recommended_facility["id"]
+        }
+    else:
+        btn_action = {
+            "type": "button",
+            "label": "Tanya Dokter" if is_indonesian else "Ask Doctor",
             "action": "consult_doctor"
-        },
-        {
+        }
+        btn_visit_dots = {
             "type": "button",
             "label": btn_hospitals,
             "action": "visit_dots"
         }
+
+    sdui_components = [
+        btn_action,
+        btn_visit_dots
     ]
 
     return {

@@ -42,6 +42,7 @@ class ChatRequest(BaseModel):
     history: list[ChatMessage] = []
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    images: Optional[list[str]] = None
 
 class ChatResponse(BaseModel):
     risk_level: str

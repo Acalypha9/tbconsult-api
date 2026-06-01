@@ -17,9 +17,13 @@ def should_extract(state: TriageState) -> str:
     return "nlu_extraction"
 
 def should_retrieve(state: TriageState) -> str:
-    from app.graph.nodes.generate import _count_bot_turns, _is_informational_question
+    from app.graph.nodes.generate import _count_bot_turns, _is_informational_question, _is_hospital_query
     
-    if _is_informational_question(state.get("user_message", "")):
+    user_msg = state.get("user_message", "")
+    if _is_hospital_query(user_msg):
+        return "generate"
+        
+    if _is_informational_question(user_msg):
         return "retrieval"
         
     bot_turns = _count_bot_turns(state.get("chat_history", []))
